@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <title>WebGIS - Kabupaten Ngawi</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+      }
+
+      .header {
+        background: #2c3e50;
+        color: white;
+        text-align: center;
+        padding: 15px;
+        font-size: 22px;
+        font-weight: bold;
+      }
+
+      #map {
+        height: 80vh;
+      }
+
+      .controls {
+        padding: 10px;
+        background: #f4f4f4;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      button {
+        padding: 6px 10px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+
+      .red {
+        background: red;
+        color: white;
+      }
+      .blue {
+        background: blue;
+        color: white;
+      }
+      .green {
+        background: green;
+        color: white;
+      }
+      .clear {
+        background: black;
+        color: white;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="header">WEBGIS KABUPATEN NGAWI</div>
+
+    <div class="controls">
+      <span>Pilih Marker:</span>
+      <button class="red" onclick="setColor('red')">Merah</button>
+      <button class="blue" onclick="setColor('blue')">Biru</button>
+      <button class="green" onclick="setColor('green')">Hijau</button>
+
+      <button class="clear" onclick="markerManager.clearMarkers()">Clear All Markers</button>
+
+      <label>
+        <input type="checkbox" checked onchange="markerManager.toggleLayer(this.checked)" />
+        Tampilkan Marker
+      </label>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <script>
+      // ==============================
+      // 1. PETA NGAWI
+      // ==============================
+      const map = L.map("map").setView([-7.403, 111.446], 12);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap",
+      }).addTo(map);
+
+      L.marker([-7.403, 111.446]).addTo(map).bindPopup("Pusat Kabupaten Ngawi");
+
+      // ==============================
+      // 2. WARNA MARKER
+      // ==============================
+      let selectedColor = "red";
+
+      function setColor(color) {
+        selectedColor = color;
+      }
+
+      function getIcon(color) {
+        return new L.Icon({
+          iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${color}.png`,
+          shadowUrl: "https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png",
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+        });
+      }
+
+      // ==============================
+      // 3. CLASS MARKER
+      // ==============================
+      class MarkerManager {
+        constructor(map) {
+          this.map = map;
+          this.markers = [];
+          this.layerGroup = L.layerGroup().addTo(map);
+        }
+
+        addMarker(latlng, color) {
+          const marker = L.marker(latlng, { icon: getIcon(color) });
+
+          const popupContent = `
+        <b>Koordinat Lokasi</b><br>
+        Latitude : ${latlng.lat.toFixed(6)}<br>
+        Longitude: ${latlng.lng.toFixed(6)}
+      `;
+
+          marker.bindPopup(popupContent).openPopup();
+
+          marker.on("click", function () {
+            this.openPopup();
+          });
+
+          this.layerGroup.addLayer(marker);
+          this.markers.push({ latlng, color });
+
+          this.saveToLocalStorage();
+        }
+
+        clearMarkers() {
+          this.layerGroup.clearLayers();
+          this.markers = [];
+          localStorage.removeItem("markers");
+        }
+
+        toggleLayer(show) {
+          if (show) {
+            this.map.addLayer(this.layerGroup);
+          } else {
+            this.map.removeLayer(this.layerGroup);
+          }
+        }
+
+        saveToLocalStorage() {
+          localStorage.setItem("markers", JSON.stringify(this.markers));
+        }
+
+        loadFromLocalStorage() {
+          const data = JSON.parse(localStorage.getItem("markers"));
+          if (data) {
+            data.forEach((item) => {
+              const marker = L.marker(item.latlng, { icon: getIcon(item.color) });
+
+              const popupContent = `
+            <b>Koordinat Lokasi</b><br>
+            Latitude : ${item.latlng.lat.toFixed(6)}<br>
+            Longitude: ${item.latlng.lng.toFixed(6)}
+          `;
+
+              marker.bindPopup(popupContent);
+
+              this.layerGroup.addLayer(marker);
+              this.markers.push(item);
+            });
+          }
+        }
+      }
+
+      const markerManager = new MarkerManager(map);
+      markerManager.loadFromLocalStorage();
+
+      // ==============================
+      // 4. EVENT KLIK PETA
+      // ==============================
+      map.on("click", function (e) {
+        // Tambah marker
+        markerManager.addMarker(e.latlng, selectedColor);
+
+        // Popup sementara
+        L.popup()
+          .setLatLng(e.latlng)
+          .setContent(
+            `
+        <b>Koordinat</b><br>
+        Lat: ${e.latlng.lat.toFixed(6)}<br>
+        Long: ${e.latlng.lng.toFixed(6)}
+      `,
+          )
+          .openOn(map);
+      });
+    </script>
+  </body>
+</html>
